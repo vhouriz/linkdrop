@@ -19,8 +19,9 @@ All asset paths are relative, so the same files work at both `username.github.io
 | A direct video file | The browser fetches the video and starts a download. Extensionless URLs work when the host allows browser access and serves a video MIME type. |
 | Internet Archive item | Reads the public file list. Items with several video files show a selector. |
 | Wikimedia Commons video file page | Resolves the original video through the MediaWiki API. |
-| Public HTML page | Can find ordinary video elements and direct video metadata when the page allows cross-origin reads. |
-| YouTube, TikTok and other supported platforms | Requires a separately hosted Cobalt API. The availability of a particular link depends on the instance and the source platform. |
+| Public HTML page | When the page permits browser access, Linkdrop checks video elements, video metadata, video download links and embedded YouTube or Vimeo players. |
+| YouTube | For watch, share, Shorts, live and embed links, Linkdrop sends the video ID to Wikimedia Commons and looks for a video that credits that exact ID as a source. Visitors can review the file and license before downloading it. If no file is available, Linkdrop tries the connected server. [Try NASA’s Apollo 13 video](https://vhouriz.github.io/linkdrop/?video=https%3A%2F%2Fyoutu.be%2FIlifg26TZrI). |
+| TikTok, Vimeo and other supported platforms | Uses the connected Cobalt API. Availability depends on the platform and instance. |
 
 For hosts that block cross-origin reads, the site offers to open a direct video in the original player. For videos above 64 MiB it offers streaming to disk in browsers with a file picker, or opens the original video for saving through the browser. Private videos, DRM-protected streams and arbitrary streaming manifests are outside the site's supported formats.
 

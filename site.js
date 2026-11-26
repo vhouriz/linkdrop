@@ -134,21 +134,49 @@
     }
   }
 
+  async function selectFile(file, signal) {
+    if (file.player) return findVideo(new URL(file.player), signal);
+    return download(file, signal);
+  }
+
   function chooseFile(files) {
-    say("This link contains several videos. Choose a file to download.");
+    const commons = Boolean(files[0].sourcePage);
+    say(commons ? "Wikimedia Commons lists this YouTube video as a source. Choose a file to download."
+      : "This link contains several videos. Choose a file to download.");
     const select = document.createElement("select");
     select.setAttribute("aria-label", "Video file");
     files.forEach((file, index) => {
       const option = document.createElement("option");
-      option.textContent = file.name || file.label || "Video " + (index + 1);
+      option.textContent = file.label || file.name || "Video " + (index + 1);
       option.value = String(index);
       select.append(option);
     });
     actions.append(select);
+    if (commons) {
+      const source = link("File details and license ↗", files[0].sourcePage);
+      select.addEventListener("change", () => { source.href = files[select.selectedIndex].sourcePage; });
+    }
     button("Download selected file", () => {
       const selected = files[select.selectedIndex];
-      run(signal => download(selected, signal));
+      run(signal => selectFile(selected, signal));
     });
+  }
+
+  async function findVideo(url, signal) {
+    say("Finding the video…");
+    if (api) touch(120000);
+    const files = await Linkdrop.resolve(url, api, signal);
+    touch();
+    if (!files.length) throw new Error("This page has no public video file available.");
+    if (files.length > 1) return chooseFile(files);
+    const file = files[0];
+    if (file.sourcePage) {
+      say("This Wikimedia Commons file credits the YouTube video as its source. " + file.label);
+      button("Download file", () => run(nextSignal => download(file, nextSignal)));
+      link("File details and license ↗", file.sourcePage);
+      return;
+    }
+    await selectFile(file, signal);
   }
 
   byId("download-form").addEventListener("submit", event => {
@@ -163,17 +191,13 @@
       input.focus();
       return;
     }
-    run(async signal => {
-      say("Finding the video…");
-      // A free download server may take about a minute to wake up.
-      if (api) touch(120000);
-      const files = await Linkdrop.resolve(url, api, signal);
-      touch();
-      if (!files.length) throw new Error("This page has no public video file available.");
-      if (files.length > 1) chooseFile(files);
-      else await download(files[0], signal);
-    });
+    run(signal => findVideo(url, signal));
   });
+
+  const shared = new URLSearchParams(location.search).get("video");
+  if (shared) {
+    try { input.value = Linkdrop.parseInput(shared).href; } catch { /* Leave the field ready for a link. */ }
+  }
 
   input.addEventListener("input", clearFeedback);
   cancel.addEventListener("click", () => operation?.abort("cancel"));
@@ -214,5 +238,5 @@
     }
   });
   video.addEventListener("ended", resetPlayer);
-  if (api) byId("platform-info").textContent = "Supported video pages are sent to the site's connected download server. Availability varies by platform.";
+  if (api) byId("platform-info").textContent = "YouTube links can use a copy on Wikimedia Commons. Other supported videos use the download server when available.";
 })();

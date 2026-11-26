@@ -51,7 +51,7 @@ const Linkdrop = (() => {
     if (!response.ok) {
       const body = await response.json().catch(() => null);
       if (body?.error?.code === "error.api.youtube.login") {
-        throw new Error("YouTube requires the download server to sign in for this video. Try a direct video file or another source.");
+        throw new Error("YouTube asked the download server to sign in. If the creator shared a video file in the description, paste that link here.");
       }
       throw new Error("The source declined this request (HTTP " + response.status + ").");
     }
@@ -76,6 +76,56 @@ const Linkdrop = (() => {
     const file = page?.imageinfo?.[0];
     if (!file || !webUrl(file.url) || !(file.mime?.startsWith("video/") || file.mime === "application/ogg")) return [];
     return [{ url: file.url, name: page.title.replace(/^File:/i, "") }];
+  }
+
+  function youtubeId(url) {
+    if (!url) return null;
+    const host = url.hostname.replace(/^(www|m|music)\./, "");
+    const parts = url.pathname.split("/");
+    let id;
+    if (host === "youtu.be") id = parts[1];
+    else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+      if (url.pathname === "/watch") id = url.searchParams.get("v");
+      else if (["shorts", "embed", "live", "v"].includes(parts[1])) id = parts[2];
+    }
+    return /^[\w-]{11}$/.test(id || "") ? id : null;
+  }
+
+  async function commonsCopies(id, signal) {
+    const query = new URLSearchParams({ action: "query", generator: "exturlusage", geunamespace: "6",
+      geuprotocol: "", geulimit: "20", prop: "imageinfo", iiprop: "url|mediatype|extmetadata|size",
+      iiextmetadatafilter: "Credit", format: "json", formatversion: "2", origin: "*" });
+    for (const reference of ["www.youtube.com/watch?v=" + id, "youtu.be/" + id]) {
+      query.set("geuquery", reference);
+      const data = await json("https://commons.wikimedia.org/w/api.php?" + query, signal);
+      const matches = [];
+      for (const page of data.query?.pages || []) {
+        const file = page.imageinfo?.[0];
+        if (file?.mediatype !== "VIDEO" || webUrl(file.url)?.origin !== "https://upload.wikimedia.org"
+            || webUrl(file.descriptionurl)?.origin !== "https://commons.wikimedia.org") continue;
+        // External-link search also finds incidental mentions. Require the ID in the file's source credit.
+        const credit = document.createElement("template");
+        credit.innerHTML = file.extmetadata?.Credit?.value || "";
+        if (![...credit.content.querySelectorAll("a[href]")].some(a => youtubeId(webUrl(a.getAttribute("href"))) === id)) continue;
+        const name = page.title.replace(/^File:/i, "");
+        const size = file.size ? " · " + (file.size / 1048576).toLocaleString(undefined, { maximumFractionDigits: 1 }) + " MiB" : "";
+        matches.push({ url: file.url, name, label: name + size, sourcePage: file.descriptionurl });
+      }
+      if (matches.length) return matches;
+    }
+    return [];
+  }
+
+  async function youtubeFiles(id, api, signal) {
+    // Keep a slow Commons lookup from consuming the time available for the download server.
+    const lookup = typeof AbortSignal.any === "function" ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : signal;
+    try {
+      const files = await commonsCopies(id, lookup);
+      if (files.length) return files;
+    } catch (error) {
+      if (signal.aborted) throw error;
+    }
+    return platformFiles(new URL("https://www.youtube.com/watch?v=" + id), api, signal);
   }
 
   async function platformFiles(url, api, signal) {
@@ -136,6 +186,8 @@ const Linkdrop = (() => {
       if (/^File:/i.test(title || "")) return commonsFile(title, signal);
     }
     if (videoExtension.test(path)) return [{ url: url.href }];
+    const id = youtubeId(url);
+    if (id) return youtubeFiles(id, api, signal);
     if (platform.test(url.hostname) || /\.(m3u8|mpd)$/i.test(path)) return platformFiles(url, api, signal);
 
     // Some CDNs use extensionless URLs. Reuse the opened response when it contains video.
@@ -155,12 +207,31 @@ const Linkdrop = (() => {
         const template = document.createElement("template");
         template.innerHTML = await page.text();
         const files = new Map();
-        for (const tag of template.content.querySelectorAll('video[src],video source[src],meta[property="og:video"],meta[property="og:video:url"],meta[property="og:video:secure_url"]')) {
-          const src = tag.getAttribute("src") || tag.getAttribute("content");
+        let base = response.url || url.href;
+        const baseTag = template.content.querySelector("base[href]");
+        if (baseTag) {
+          try { base = webUrl(new URL(baseTag.getAttribute("href"), base).href)?.href || base; } catch { /* Use the page URL. */ }
+        }
+        for (const tag of template.content.querySelectorAll('video[src],video source[src],a[download][href],meta[property="og:video"],meta[property="og:video:url"],meta[property="og:video:secure_url"],iframe[src]')) {
+          const src = tag.getAttribute("src") || tag.getAttribute("content") || tag.getAttribute("href");
           if (!src) continue;
           let file;
-          try { file = webUrl(new URL(src, response.url || url.href).href); } catch { continue; }
-          if (file && !/\.(mpd|m3u8)$/i.test(file.pathname) && (tag.localName !== "meta" || videoExtension.test(file.pathname))) files.set(file.href, { url: file.href });
+          try { file = webUrl(new URL(src, base).href); } catch { continue; }
+          if (!file || /\.(mpd|m3u8)$/i.test(file.pathname)) continue;
+          if (tag.localName === "iframe" || tag.localName === "meta") {
+            const id = youtubeId(file);
+            const vimeo = file.hostname === "player.vimeo.com" && file.pathname.match(/^\/video\/(\d+)\/?$/);
+            if (id || vimeo) {
+              const vimeoHash = file.searchParams.get("h");
+              const player = id ? "https://www.youtube.com/watch?v=" + id
+                : "https://vimeo.com/" + vimeo[1] + (/^[a-z\d]+$/i.test(vimeoHash || "") ? "/" + vimeoHash : "");
+              files.set(player, { player, label: (id ? "YouTube" : "Vimeo") + " · " + (tag.getAttribute("title") || id || vimeo[1]) });
+              continue;
+            }
+            if (tag.localName === "iframe") continue;
+          }
+          if (["a", "meta"].includes(tag.localName) && !videoExtension.test(file.pathname)) continue;
+          files.set(file.href, { url: file.href, label: decoded(file.pathname.split("/").pop() || "Video") });
         }
         if (files.size) return [...files.values()];
       }
