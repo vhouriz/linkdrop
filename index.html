@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f7f1">
+  <meta name="description" content="Paste a public video link to download a video file with Linkdrop.">
+  <title>Linkdrop — Video downloader</title>
+  <link rel="icon" href="./assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./config.js"></script>
+  <script defer src="./downloader.js"></script>
+  <script defer src="./site.js"></script>
+</head>
+<body id="top">
+  <header class="topbar wrap">
+    <a class="brand" href="./" aria-label="Linkdrop home"><img src="./assets/mark.svg" alt="" width="38" height="38">Linkdrop</a>
+    <a class="guide-link" href="#guide">Supported links <span aria-hidden="true">↘</span></a>
+  </header>
+  <main class="wrap">
+    <div class="workspace">
+      <section class="download" aria-labelledby="main-title">
+        <h1 id="main-title">Save a video<br><em>from a link.</em></h1>
+        <p class="intro">Paste a public video link to download the file.</p>
+        <form id="download-form">
+          <label for="url">Video link</label>
+          <div class="input-row">
+            <svg class="icon link-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m10 14 4-4m-6 3-2 2a3.5 3.5 0 0 0 5 5l4-4a3.5 3.5 0 0 0 0-5m1 0 2-2a3.5 3.5 0 0 0-5-5l-4 4a3.5 3.5 0 0 0 0 5"/></svg>
+            <input id="url" name="url" type="text" inputmode="url" placeholder="https://…" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="status-message">
+            <button class="paste" id="paste" type="button">Paste</button>
+          </div>
+          <div class="action-row">
+            <button class="primary" id="submit" type="submit">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></svg>
+              <span>Download video</span>
+            </button>
+            <button id="cancel" class="text-button" type="button" hidden>Cancel</button>
+          </div>
+        </form>
+        <div class="feedback" id="feedback" hidden>
+          <p id="status-message" role="status" aria-live="polite"></p>
+          <progress id="progress" aria-label="Download progress" hidden></progress>
+          <div id="file-actions"></div>
+        </div>
+        <noscript><p>Enable JavaScript to download a video from a link.</p></noscript>
+      </section>
+      <figure class="sample" aria-label="Try a sample video">
+        <div class="sample-art">
+          <i class="crop a"></i><i class="crop b"></i><i class="crop c"></i><i class="crop d"></i>
+          <div class="film">
+            <div class="perfs" aria-hidden="true"></div>
+            <div class="screen">
+              <video id="sample-video" preload="none" playsinline poster="./assets/garden.jpg" aria-label="Time-lapse of a red flower opening">
+                <source src="./assets/garden.mp4" type="video/mp4">
+              </video>
+              <button type="button" id="play" aria-label="Play sample video"><span aria-hidden="true">▶</span></button>
+            </div>
+            <div class="perfs" aria-hidden="true"></div>
+          </div>
+        </div>
+        <figcaption>
+          <div><div class="caption-label">Sample clip</div><strong>Garden in bloom</strong><span class="spec">MP4 · 5 sec</span></div>
+          <button id="sample-link" type="button" class="sample-link">Use sample link <span aria-hidden="true">↗</span></button>
+        </figcaption>
+      </figure>
+    </div>
+    <section id="guide" class="guide" aria-labelledby="guide-title">
+      <h2 id="guide-title">Supported links</h2>
+      <div class="guide-grid">
+        <article>
+          <div class="guide-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></div>
+          <h3>Video files</h3><p>Direct links to MP4, WebM, MOV and other video files.</p>
+        </article>
+        <article>
+          <div class="guide-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5M4 9h16M6 12v5m6-5v5m6-5v5M3 20h18"/></svg></div>
+          <h3>Public archives</h3><p>Video items on Internet Archive and file pages on Wikimedia Commons.</p>
+        </article>
+        <article>
+          <div class="guide-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg></div>
+          <h3>Video platforms</h3><p id="platform-info">YouTube, TikTok and similar platforms require a connected download server.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

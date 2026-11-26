@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: linkdrop-api
+    runtime: docker
+    plan: free
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: CORS_URL
+        sync: false
+      - key: CORS_WILDCARD
+        value: "0"

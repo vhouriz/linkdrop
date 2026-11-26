@@ -1,0 +1,27 @@
+services:
+  cobalt:
+    image: ghcr.io/imputnet/cobalt:11
+    init: true
+    read_only: true
+    restart: unless-stopped
+    environment:
+      API_URL: "https://${DOWNLOAD_HOST:?Set DOWNLOAD_HOST to the server hostname}/"
+      CORS_WILDCARD: "0"
+      CORS_URL: "${PAGES_ORIGIN:?Set PAGES_ORIGIN to the origin of your GitHub Pages site}"
+  https:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - cobalt
+    environment:
+      DOWNLOAD_HOST: "${DOWNLOAD_HOST}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificates:/data
+      - caddy_config:/config
+volumes:
+  certificates:
+  caddy_config:
