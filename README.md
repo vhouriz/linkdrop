@@ -2,6 +2,8 @@
 
 A build-free video downloader website for GitHub Pages. Visitors paste a public link and select **Download video**. **Use sample link** loads a five-second clip included with the site.
 
+The [live Linkdrop site](https://vhouriz.github.io/linkdrop/) connects to a free Cobalt server on Render and records aggregate visits and page views with Cloudflare Web Analytics.
+
 ## Publish on GitHub Pages
 
 1. Put the contents of this project in the root of your GitHub repository. Keep the `assets` directory alongside `index.html`.
@@ -29,7 +31,7 @@ For hosts that block cross-origin reads, the site offers to open a direct video 
 1. Push this project to GitHub, including `render.yaml` at the repository root and `server/Dockerfile`.
 2. In the Render dashboard, select **New → Blueprint** and connect your GitHub repository. The included template selects one **Free** web service. [Render Blueprint setup](https://render.com/docs/infrastructure-as-code)
 3. When Render asks for `CORS_URL`, enter your site's origin. For a website at `https://username.github.io/YoutubeDownloader/`, enter only `https://username.github.io`. Then select **Deploy Blueprint**.
-4. When the service is **Live**, copy its public HTTPS address from the dashboard. In your GitHub repository, edit `config.js`, replace the empty string with that address, and commit the change. For example, `window.LINKDROP_API = "https://your-service.onrender.com/";`.
+4. When the service is **Live**, copy its public HTTPS address from the dashboard. In your GitHub repository, set `window.LINKDROP_API` in `config.js` to that address and commit the change.
 5. After Pages republishes, test a public video page from a supported platform. The built-in sample downloads directly, so it tests the website only. Availability depends on the platform and whether it accepts requests from your server. [Cobalt's supported platforms](https://github.com/imputnet/cobalt/tree/main/api#supported-services)
 
 Render's free web service sleeps after 15 idle minutes and can take about a minute to wake. Videos that pass through the server consume outbound bandwidth. For a zero-spend setup, use a free workspace without a payment method. At the bandwidth limit Render suspends free services for the rest of the month. With a payment method, bandwidth overages can incur charges. Heavy outbound traffic can also trigger suspension. [Render free-tier details](https://render.com/docs/free)
@@ -58,7 +60,7 @@ The frontend posts platform links to that endpoint and handles tunnel, redirect 
 Cloudflare Web Analytics offers free visit and page-view counts for a GitHub Pages site. The site currently allows anonymous visitors. Seeing a person's name or email would require them to share it, for example through sign-in. [About Web Analytics](https://developers.cloudflare.com/web-analytics/about/)
 
 1. In Cloudflare, open **Web Analytics → Add a site**. Enter your Pages hostname, such as `username.github.io`.
-2. Copy the snippet from **Manage site**. Paste it immediately before `</body>` in `index.html` and commit the change to GitHub.
+2. When deploying your own copy, replace the existing Cloudflare snippet before `</body>` in `index.html` with the snippet from **Manage site** and commit the change to GitHub.
 3. After Pages republishes, visit the site. Give it a few minutes, then open your Web Analytics dashboard to see traffic. Direct and server-assisted downloads use the same page, so page views measure visits to the tool. [Cloudflare setup guide](https://developers.cloudflare.com/web-analytics/get-started/)
 
 ## Sample clip

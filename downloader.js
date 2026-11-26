@@ -48,7 +48,13 @@ const Linkdrop = (() => {
   async function json(url, signal, options) {
     const response = await request(url, signal, options);
     if (response.status === 429) throw new Error("The source is receiving too many requests. Try again shortly.");
-    if (!response.ok) throw new Error("The source declined this request (HTTP " + response.status + ").");
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      if (body?.error?.code === "error.api.youtube.login") {
+        throw new Error("YouTube requires the download server to sign in for this video. Try a direct video file or another source.");
+      }
+      throw new Error("The source declined this request (HTTP " + response.status + ").");
+    }
     return response.json();
   }
 
