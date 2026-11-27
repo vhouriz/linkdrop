@@ -142,7 +142,7 @@
   function chooseFile(files) {
     const commons = Boolean(files[0].sourcePage);
     say(commons ? "Wikimedia Commons lists this YouTube video as a source. Choose a file to download."
-      : "This link contains several videos. Choose a file to download.");
+      : "Choose a video file to download.");
     const select = document.createElement("select");
     select.setAttribute("aria-label", "Video file");
     files.forEach((file, index) => {
@@ -238,5 +238,5 @@
     }
   });
   video.addEventListener("ended", resetPlayer);
-  if (api) byId("platform-info").textContent = "YouTube links can use a copy on Wikimedia Commons. Other supported videos use the download server when available.";
+  if (api) byId("platform-info").textContent = "YouTube links can use a copy on Wikimedia Commons. PeerTube offers files directly. Other supported platforms use the download server.";
 })();

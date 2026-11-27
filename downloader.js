@@ -32,6 +32,10 @@ const Linkdrop = (() => {
     try { return decodeURIComponent(value); } catch { return value; }
   }
 
+  function fileSize(bytes) {
+    return bytes > 0 ? " · " + (bytes / 1048576).toLocaleString(undefined, { maximumFractionDigits: 1 }) + " MiB" : "";
+  }
+
   function filename(url, hint, type) {
     const raw = hint || decoded(url.pathname.split("/").pop() || "video");
     const name = raw.replace(/[\\/:*?"<>|\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/g, "_").replace(/^[. ]+|[. ]+$/g, "") || "video";
@@ -108,8 +112,7 @@ const Linkdrop = (() => {
         credit.innerHTML = file.extmetadata?.Credit?.value || "";
         if (![...credit.content.querySelectorAll("a[href]")].some(a => youtubeId(webUrl(a.getAttribute("href"))) === id)) continue;
         const name = page.title.replace(/^File:/i, "");
-        const size = file.size ? " · " + (file.size / 1048576).toLocaleString(undefined, { maximumFractionDigits: 1 }) + " MiB" : "";
-        matches.push({ url: file.url, name, label: name + size, sourcePage: file.descriptionurl });
+        matches.push({ url: file.url, name, label: name + fileSize(file.size), sourcePage: file.descriptionurl });
       }
       if (matches.length) return matches;
     }
@@ -126,6 +129,41 @@ const Linkdrop = (() => {
       if (signal.aborted) throw error;
     }
     return platformFiles(new URL("https://www.youtube.com/watch?v=" + id), api, signal);
+  }
+
+  async function peerTubeFiles(url, id, signal) {
+    let video;
+    try {
+      const response = await request(new URL("/api/v1/videos/" + id, url), signal);
+      if (!response.ok || contentType(response) !== "application/json") {
+        await response.body?.cancel();
+        return null;
+      }
+      const metadata = await readLimited(response, 1024 * 1024, () => {});
+      if (metadata) video = JSON.parse(await metadata.text());
+    } catch (error) {
+      if (signal.aborted) throw error;
+      return null;
+    }
+    if (![video?.shortUUID, video?.uuid].includes(id) || typeof video?.downloadEnabled !== "boolean") return null;
+    if (!video.downloadEnabled) throw new Error("The publisher has turned off downloads for this PeerTube video.");
+
+    const playlists = Array.isArray(video.streamingPlaylists) ? video.streamingPlaylists : [];
+    const groups = [video.files, ...playlists.map(playlist => playlist?.files)];
+    for (const group of groups) {
+      if (!Array.isArray(group)) continue;
+      const hasSeparateAudio = group.some(file => file?.hasVideo === false);
+      const files = [];
+      for (const file of group) {
+        const download = webUrl(file?.fileDownloadUrl);
+        if (!download || !file.resolution?.id || file.hasVideo === false || (hasSeparateAudio && file.hasAudio === false)) continue;
+        const extension = download.pathname.match(videoExtension) || webUrl(file.fileUrl)?.pathname.match(videoExtension);
+        const name = video.name + " - " + file.resolution.label + (extension?.[0] || "");
+        files.push({ url: download.href, name, label: name + fileSize(file.size) });
+      }
+      if (files.length) return files;
+    }
+    throw new Error("This PeerTube host has no downloadable video file available.");
   }
 
   async function platformFiles(url, api, signal) {
@@ -189,6 +227,11 @@ const Linkdrop = (() => {
     const id = youtubeId(url);
     if (id) return youtubeFiles(id, api, signal);
     if (platform.test(url.hostname) || /\.(m3u8|mpd)$/i.test(path)) return platformFiles(url, api, signal);
+    const peerTube = path.match(/^\/(?:w|videos\/(?:watch|embed))\/([a-z\d]{21,22}|[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12})\/?$/i);
+    if (peerTube) {
+      const files = await peerTubeFiles(url, peerTube[1], signal);
+      if (files) return files;
+    }
 
     // Some CDNs use extensionless URLs. Reuse the opened response when it contains video.
     let response;
